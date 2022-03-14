@@ -12,7 +12,7 @@ int main()
     }
     printf("Tokenization succeeded\n");
 
-    auto parsing_result = parse_expression(tokenization_result.tokens);
+    auto parsing_result = parse(tokenization_result.tokens);
     if (!parsing_result.has_data)
     {
         printf("Parsing failed\n");

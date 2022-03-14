@@ -1,0 +1,8 @@
+[/] duplicate parameter names error
+[/] reduction
+[ ] bounded variable indexing?
+[ ] printing bounded variables with duplicate names
+[ ] fix leaks and memory allocation in general
+[ ] statements
+[ ] provide stateful functions as dependencies
+[ ] error reporting

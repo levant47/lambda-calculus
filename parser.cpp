@@ -25,7 +25,7 @@ struct Expression
         switch (type)
         {
             case ExpressionTypeVariable:
-                return name;
+                return name.copy();
             case ExpressionTypeFunction: {
                 auto result = String::allocate();
                 result.push("\\ ");
@@ -110,14 +110,21 @@ struct ExpressionParser
     List<Token> tokens;
     u64 index;
     u32 depth;
+    List<String> bounded_variable_names;
 
-    static ExpressionParser construct(List<Token> tokens)
+    static ExpressionParser allocate(List<Token> tokens)
     {
         ExpressionParser result;
         result.tokens = tokens;
         result.index = 0;
         result.depth = 0;
+        result.bounded_variable_names = List<String>::allocate();
         return result;
+    }
+
+    void deallocate()
+    {
+        bounded_variable_names.deallocate();
     }
 
     bool is_done() { return index == tokens.size; }
@@ -161,10 +168,12 @@ struct ExpressionParser
         if (is_done()) { return Option<Expression>::empty(); }
 
         auto original_index = index;
+        auto original_bounded_variable_names_size = bounded_variable_names.size;
         if (false)
         {
             fail:
             index = original_index;
+            bounded_variable_names.size = original_bounded_variable_names_size;
             return Option<Expression>::empty();
         }
 
@@ -173,8 +182,9 @@ struct ExpressionParser
 
         skip_whitespace();
 
-        if (current().type != TokenTypeName) { goto fail; }
-        String parameter_name = current().name;
+        if (current().type != TokenTypeName || bounded_variable_names.contains(current().name)) { goto fail; }
+        auto parameter_name = current().name;
+        bounded_variable_names.push(parameter_name);
         index++;
 
         auto parameters = List<String>::allocate(); // #leak
@@ -184,7 +194,9 @@ struct ExpressionParser
             skip_whitespace();
 
             if (current().type != TokenTypeName) { break; }
+            if (bounded_variable_names.contains(current().name)) { goto fail; }
             parameters.push(current().name);
+            bounded_variable_names.push(current().name);
             index++;
         }
 
@@ -212,6 +224,9 @@ struct ExpressionParser
             next_body = &(*next_body)->body;
         }
         *next_body = copy_to_heap(maybe_body.value);
+
+        bounded_variable_names.size = original_bounded_variable_names_size;
+
         return Option<Expression>::construct(expression);
     }
 
@@ -335,9 +350,9 @@ struct ExpressionParser
     }
 };
 
-Option<Expression> parse_expression(List<Token> tokens)
+Option<Expression> parse(List<Token> tokens)
 {
-    auto parser = ExpressionParser::construct(tokens);
+    auto parser = ExpressionParser::allocate(tokens);
     auto maybe_expression = parser.parse_terminal_expression();
     if (!maybe_expression.has_data) { return Option<Expression>::empty(); }
 
@@ -345,8 +360,10 @@ Option<Expression> parse_expression(List<Token> tokens)
 
     if (!parser.is_done())
     {
+        parser.deallocate();
         return Option<Expression>::empty();
     }
 
+    parser.deallocate();
     return maybe_expression;
 }
