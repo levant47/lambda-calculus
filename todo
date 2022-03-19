@@ -1,6 +1,6 @@
 [/] duplicate parameter names error
 [/] reduction
-[ ] bounded variable indexing?
+[/] bounded variable indexing
 [ ] printing bounded variables with duplicate names
 [ ] fix leaks and memory allocation in general
 [ ] statements

@@ -5,6 +5,68 @@ enum ExpressionType
     ExpressionTypeApplication,
 };
 
+struct BoundedVariableUsageMapEntry
+{
+    String variable_name;
+    u32 variable_id;
+};
+
+struct BoundedVariableUsageMap
+{
+    List<BoundedVariableUsageMapEntry> entries;
+
+    static BoundedVariableUsageMap allocate()
+    {
+        BoundedVariableUsageMap result;
+        result.entries = List<BoundedVariableUsageMapEntry>::allocate();
+        return result;
+    }
+
+    void deallocate()
+    {
+        entries.deallocate();
+    }
+
+    void add(String variable_name, u32 variable_id)
+    {
+        BoundedVariableUsageMapEntry entry;
+        entry.variable_name = variable_name;
+        entry.variable_id = variable_id;
+        entries.push(entry);
+    }
+
+    String get_name(u32 variable_id)
+    {
+        for (u64 i = 0; i < entries.size; i++)
+        {
+            if (entries.data[i].variable_id == variable_id)
+            {
+                return entries.data[i].variable_name;
+            }
+        }
+        assert(false);
+        return {};
+    }
+
+    u32 get_duplicates_count(u32 variable_id, String variable_name)
+    {
+        auto duplicates_count = 0;
+        for (u64 i = 0; i < entries.size; i++)
+        {
+            if (entries.data[i].variable_id == variable_id)
+            {
+                return duplicates_count;
+            }
+            if (entries.data[i].variable_name == variable_name)
+            {
+                duplicates_count++;
+            }
+        }
+        assert(false);
+        return {};
+    }
+};
+
 struct Expression
 {
     ExpressionType type;
@@ -13,34 +75,90 @@ struct Expression
     union
     {
         // ExpressionTypeVariable
-        struct { String name; };
+        struct
+        {
+            bool is_bound;
+            union
+            {
+                // is_bound = true
+                u32 bounded_id; // TODO: rename to bound_id
+                // is_bound = false
+                String global_name;
+            };
+        };
         // ExpressionTypeFunction
-        struct { String parameter_name; Expression* body; };
+        struct { u32 parameter_id; String parameter_name; Expression* body; };
         // ExpressionTypeApplication
         struct { Expression* left; Expression* right; };
     };
 
     String to_string()
     {
+        auto map = BoundedVariableUsageMap::allocate();
+        auto result = to_string(map);
+        map.deallocate();
+        return result;
+    }
+
+    String to_string(BoundedVariableUsageMap bounded_variable_usage_map)
+    {
         switch (type)
         {
-            case ExpressionTypeVariable:
-                return name.copy();
+            case ExpressionTypeVariable: {
+                auto name = is_bound
+                    ? bounded_variable_usage_map.get_name(bounded_id)
+                    : global_name;
+
+                auto result = String::allocate(name.size + 2);
+                result.push(name);
+
+                if (is_bound) // global variables aren't going to have an entry
+                {
+                    auto duplicates_count = bounded_variable_usage_map.get_duplicates_count(bounded_id, name);
+                    if (duplicates_count != 0)
+                    {
+                        result.push('_');
+                        auto count_string = number_to_string(duplicates_count);
+                        result.push(count_string);
+                        count_string.deallocate();
+                    }
+                }
+
+                return result;
+            }
             case ExpressionTypeFunction: {
+                auto original_bounded_variable_usage_map_size = bounded_variable_usage_map.entries.size;
+
                 auto result = String::allocate();
                 result.push("\\ ");
                 auto node = this;
                 do
                 {
                     result.push(node->parameter_name);
+
+                    bounded_variable_usage_map.add(node->parameter_name, node->parameter_id);
+
+                    auto duplicates_count = bounded_variable_usage_map.get_duplicates_count(node->parameter_id, node->parameter_name);
+                    if (duplicates_count != 0)
+                    {
+                        result.push('_');
+                        auto count_string = number_to_string(duplicates_count);
+                        result.push(count_string);
+                        count_string.deallocate();
+                    }
+
                     result.push(" ");
+
                     node = node->body;
                 }
                 while (node->type == ExpressionTypeFunction);
                 result.push(". ");
-                auto body_string = node->to_string();
+                auto body_string = node->to_string(bounded_variable_usage_map);
                 result.push(body_string);
                 body_string.deallocate();
+
+                bounded_variable_usage_map.entries.size = original_bounded_variable_usage_map_size;
+
                 return result;
             }
             case ExpressionTypeApplication: {
@@ -50,7 +168,7 @@ struct Expression
                 {
                     result.push('(');
                 }
-                auto left_string = left->to_string();
+                auto left_string = left->to_string(bounded_variable_usage_map);
                 result.push(left_string);
                 left_string.deallocate();
                 if (left->type == ExpressionTypeFunction)
@@ -64,7 +182,7 @@ struct Expression
                 {
                     result.push('(');
                 }
-                auto right_string = right->to_string();
+                auto right_string = right->to_string(bounded_variable_usage_map);
                 result.push(right_string);
                 right_string.deallocate();
                 if (right->type == ExpressionTypeFunction || right->type == ExpressionTypeApplication)
@@ -105,12 +223,69 @@ Expression append_left_to_application(u32 depth, Expression node_to_append, Expr
     return *application_tree;
 }
 
+struct BoundedVariableMapEntry
+{
+    u32 id;
+    String name;
+};
+
+struct BoundedVariableMap
+{
+    List<BoundedVariableMapEntry> list;
+
+    static BoundedVariableMap allocate()
+    {
+        BoundedVariableMap result;
+        result.list = List<BoundedVariableMapEntry>::allocate();
+        return result;
+    }
+
+    void deallocate()
+    {
+        list.deallocate();
+    }
+
+    void push(u32 id, String name)
+    {
+        BoundedVariableMapEntry entry;
+        entry.id = id;
+        entry.name = name;
+        list.push(entry);
+    }
+
+    bool has(String name)
+    {
+        for (u64 i = 0; i < list.size; i++)
+        {
+            if (list.data[i].name == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    u32 get(String name)
+    {
+        for (u64 i = 0; i < list.size; i++)
+        {
+            if (list.data[i].name == name)
+            {
+                return list.data[i].id;
+            }
+        }
+        assert(false);
+        return {};
+    }
+};
+
 struct ExpressionParser
 {
     List<Token> tokens;
     u64 index;
     u32 depth;
-    List<String> bounded_variable_names;
+    u32 next_id;
+    BoundedVariableMap bounded_variable_map;
 
     static ExpressionParser allocate(List<Token> tokens)
     {
@@ -118,13 +293,14 @@ struct ExpressionParser
         result.tokens = tokens;
         result.index = 0;
         result.depth = 0;
-        result.bounded_variable_names = List<String>::allocate();
+        result.next_id = 0;
+        result.bounded_variable_map = BoundedVariableMap::allocate();
         return result;
     }
 
     void deallocate()
     {
-        bounded_variable_names.deallocate();
+        bounded_variable_map.deallocate();
     }
 
     bool is_done() { return index == tokens.size; }
@@ -156,7 +332,15 @@ struct ExpressionParser
         Expression expression;
         expression.type = ExpressionTypeVariable;
         expression.depth = depth;
-        expression.name = current().name;
+        expression.is_bound = bounded_variable_map.has(current().name);
+        if (expression.is_bound)
+        {
+            expression.bounded_id = bounded_variable_map.get(current().name);
+        }
+        else
+        {
+            expression.global_name = current().name;
+        }
 
         index++;
 
@@ -168,12 +352,12 @@ struct ExpressionParser
         if (is_done()) { return Option<Expression>::empty(); }
 
         auto original_index = index;
-        auto original_bounded_variable_names_size = bounded_variable_names.size;
+        auto original_bounded_variable_map_size = bounded_variable_map.list.size;
         if (false)
         {
             fail:
             index = original_index;
-            bounded_variable_names.size = original_bounded_variable_names_size;
+            bounded_variable_map.list.size = original_bounded_variable_map_size;
             return Option<Expression>::empty();
         }
 
@@ -182,21 +366,34 @@ struct ExpressionParser
 
         skip_whitespace();
 
-        if (current().type != TokenTypeName || bounded_variable_names.contains(current().name)) { goto fail; }
-        auto parameter_name = current().name;
-        bounded_variable_names.push(parameter_name);
+        if (current().type != TokenTypeName || bounded_variable_map.has(current().name)) { goto fail; }
+        Expression function;
+        function.type = ExpressionTypeFunction;
+        function.depth = depth;
+        function.parameter_id = next_id++;
+        function.parameter_name = current().name;
+        bounded_variable_map.push(function.parameter_id, function.parameter_name);
         index++;
 
-        auto parameters = List<String>::allocate(); // #leak
-        parameters.push(parameter_name);
+        Expression** next_body = &function.body;
         while (true)
         {
             skip_whitespace();
 
             if (current().type != TokenTypeName) { break; }
-            if (bounded_variable_names.contains(current().name)) { goto fail; }
-            parameters.push(current().name);
-            bounded_variable_names.push(current().name);
+            if (bounded_variable_map.has(current().name)) { goto fail; }
+
+            Expression next_function;
+            next_function.type = ExpressionTypeFunction;
+            next_function.depth = depth;
+            next_function.parameter_id = next_id++;
+            next_function.parameter_name = current().name;
+
+            *next_body = copy_to_heap(next_function); // #leak in case of parsing error down the line
+            next_body = &(*next_body)->body;
+
+            bounded_variable_map.push(next_function.parameter_id, next_function.parameter_name);
+
             index++;
         }
 
@@ -207,27 +404,11 @@ struct ExpressionParser
 
         auto maybe_body = parse_expression();
         if (!maybe_body.has_data) { goto fail; }
-
-        Expression expression;
-        expression.type = ExpressionTypeFunction;
-        expression.depth = depth;
-        expression.parameter_name = parameters.data[0];
-        Expression** next_body = &expression.body;
-        for (u64 i = 1; i < parameters.size; i++)
-        {
-            Expression next_function;
-            next_function.type = ExpressionTypeFunction;
-            next_function.depth = depth;
-            next_function.parameter_name = parameters.data[i];
-
-            *next_body = copy_to_heap(next_function);
-            next_body = &(*next_body)->body;
-        }
         *next_body = copy_to_heap(maybe_body.value);
 
-        bounded_variable_names.size = original_bounded_variable_names_size;
+        bounded_variable_map.list.size = original_bounded_variable_map_size;
 
-        return Option<Expression>::construct(expression);
+        return Option<Expression>::construct(function);
     }
 
     Option<Expression> parse_application()

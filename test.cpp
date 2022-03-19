@@ -92,6 +92,7 @@ int main()
     test_parser_success("\\ x y . x y z");
     test_parser_success("(\\ x y z w . x y z) a b c d");
     test_parser_success("(\\f x . f x)(\\f x . f x)", "(\\ f x . f x) (\\ f x . f x)");
+    test_parser_success("(\\ y x . x y) x");
 
     test_parser_fail("\\ x x . x");
     test_parser_fail("\\ x y x . z");
@@ -104,9 +105,15 @@ int main()
     test_reducer("x", "x");
     test_reducer("(\\ x . x) value", "value");
     test_reducer("\\ x . y x", "y");
+    test_reducer("\\ a b . global a b", "global");
+    test_reducer("\\ x y z . x y z", "\\ x . x");
     test_reducer("(\\ x . x x) y z", "y y z");
     test_reducer("(\\ x y . x y) one two", "one two");
     test_reducer("(\\ x y . y x) one two", "two one");
     test_reducer("(\\ x y z . z y x) one two three", "three two one");
     test_reducer("(\\ x y . y x) (\\ y . y)", "\\ y . y (\\ y_1 . y_1)");
+    test_reducer("(\\ x y z . z (y x)) (\\ z . z) (\\ x z . z x)", "\\ z . z (\\ z_1 . z_1 (\\ z_2 . z_2))");
+    test_reducer("(\\ x y . y x) (\\ y . y) z", "z (\\ y . y)");
+    test_reducer("(\\ y x . x y) x", "\\ x_1 . x_1 x");
+    test_reducer("(\\ y x . x y) x y", "y x");
 }

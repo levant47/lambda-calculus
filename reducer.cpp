@@ -1,9 +1,9 @@
-Expression beta_reduce(String parameter_name, Expression argument, Expression body)
+Expression beta_reduce(u32 parameter_id, Expression argument, Expression body)
 {
     switch (body.type)
     {
         case ExpressionTypeVariable:
-            if (body.name == parameter_name)
+            if (body.is_bound && body.bounded_id == parameter_id)
             {
                 return argument;
             }
@@ -12,28 +12,28 @@ Expression beta_reduce(String parameter_name, Expression argument, Expression bo
                 return body;
             }
         case ExpressionTypeFunction:
-            body.body = copy_to_heap(beta_reduce(parameter_name, argument, *body.body));
+            body.body = copy_to_heap(beta_reduce(parameter_id, argument, *body.body));
             return body;
         case ExpressionTypeApplication:
-            body.left = copy_to_heap(beta_reduce(parameter_name, argument, *body.left));
-            body.right = copy_to_heap(beta_reduce(parameter_name, argument, *body.right));
+            body.left = copy_to_heap(beta_reduce(parameter_id, argument, *body.left));
+            body.right = copy_to_heap(beta_reduce(parameter_id, argument, *body.right));
             return body;
     }
     assert(false);
     return {};
 }
 
-bool has_usages(String variable_name, Expression expression)
+bool has_usages(u32 variable_id, Expression expression)
 {
     switch (expression.type)
     {
         case ExpressionTypeVariable:
-            return expression.name == variable_name;
+            return expression.is_bound && expression.bounded_id == variable_id;
         case ExpressionTypeFunction:
-            return has_usages(variable_name, *expression.body);
+            return has_usages(variable_id, *expression.body);
         case ExpressionTypeApplication:
-            return has_usages(variable_name, *expression.left)
-                || has_usages(variable_name, *expression.right);
+            return has_usages(variable_id, *expression.left)
+                || has_usages(variable_id, *expression.right);
     }
     assert(false);
     return {};
@@ -45,8 +45,8 @@ Expression eta_reduce(Expression function)
 
     if (function.body->type == ExpressionTypeApplication
         && function.body->right->type == ExpressionTypeVariable
-        && function.body->right->name == function.parameter_name
-        && !has_usages(function.parameter_name, *function.body->left))
+        && function.body->right->bounded_id == function.parameter_id
+        && !has_usages(function.parameter_id, *function.body->left))
     {
         return *function.body->left;
     }
@@ -68,7 +68,7 @@ Expression reduce(Expression expression)
             expression.right = copy_to_heap(reduce(*expression.right));
             if (expression.left->type == ExpressionTypeFunction)
             {
-                return reduce(beta_reduce(expression.left->parameter_name, *expression.right, *expression.left->body));
+                return reduce(beta_reduce(expression.left->parameter_id, *expression.right, *expression.left->body));
             }
             return expression;
     }

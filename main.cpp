@@ -1,6 +1,9 @@
 #include "include.h"
 
-const char* source = "a b";
+const char* source =
+"(\\ x z . x y z) (\\ x y z . z x)"
+// "(\\ x y z . x y z) (\\ x y z . z x) (\\ z . z)"
+;
 
 int main()
 {
@@ -18,9 +21,12 @@ int main()
         printf("Parsing failed\n");
         return 1;
     }
-    printf("Parsing succeeded\n");
-
+    printf("Parsing succeeded: ");
     parsing_result.value.print();
+    printf("\n");
+
+    auto reduced_result = reduce(parsing_result.value);
+    reduced_result.print();
     printf("\n");
 }
 
