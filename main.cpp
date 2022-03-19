@@ -1,8 +1,7 @@
 #include "include.h"
 
 const char* source =
-"(\\ x z . x y z) (\\ x y z . z x)"
-// "(\\ x y z . x y z) (\\ x y z . z x) (\\ z . z)"
+"(\\ g y x . y x g) x (\\ a b x . a x b)"
 ;
 
 int main()

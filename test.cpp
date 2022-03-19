@@ -116,4 +116,5 @@ int main()
     test_reducer("(\\ x y . y x) (\\ y . y) z", "z (\\ y . y)");
     test_reducer("(\\ y x . x y) x", "\\ x_1 . x_1 x");
     test_reducer("(\\ y x . x y) x y", "y x");
+    test_reducer("(\\ g y x . y x g) x (\\ a b x . a x b)", "\\ x_1 x_2 . x_1 x_2 x");
 }
