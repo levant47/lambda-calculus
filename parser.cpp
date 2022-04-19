@@ -168,7 +168,7 @@ String Expression::to_string()
 void Expression::print()
 {
     auto string_representation = to_string();
-    string_representation.print();
+    ::print(string_representation);
     string_representation.deallocate();
 }
 

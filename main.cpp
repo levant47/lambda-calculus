@@ -4,28 +4,30 @@ const char* source =
 "(\\ g y x . y x g) x (\\ a b x . a x b)"
 ;
 
-int main()
+extern "C" void _start()
 {
     auto tokenization_result = tokenize(String::copy_from_c_string(source));
     if (!tokenization_result.success)
     {
-        printf("Tokenization failed at character %lu\n", tokenization_result.failed_at_index);
-        return 1;
+        print("Tokenization failed at character ");
+        print(tokenization_result.failed_at_index);
+        print("\n");
+        exit(1);
     }
-    printf("Tokenization succeeded\n");
+    print("Tokenization succeeded\n");
 
     auto parsing_result = parse(tokenization_result.tokens);
     if (!parsing_result.has_data)
     {
-        printf("Parsing failed\n");
-        return 1;
+        print("Parsing failed\n");
+        exit(1);
     }
-    printf("Parsing succeeded: ");
+    print("Parsing succeeded: ");
     parsing_result.value.print();
-    printf("\n");
+    print("\n");
 
     auto reduced_result = reduce(parsing_result.value);
     reduced_result.print();
-    printf("\n");
+    print("\n");
+    exit(0);
 }
-

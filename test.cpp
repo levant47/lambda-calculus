@@ -25,16 +25,24 @@ void test_parser_success(const char* source, const char* expected)
     auto maybe_expression = tokenize_and_parse(source);
     if (!maybe_expression.has_data)
     {
-        printf("Test failed, original expression: %s, expected result: %s, actual result: parsing failed\n", source, expected);
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: ");
+        print(expected);
+        print(", actual result: parsing failed\n");
         return;
     }
 
     auto expression_string = maybe_expression.value.to_string();
     if (expression_string != expected)
     {
-        printf("Test failed, original expression: %s, expected result: %s, actual result: ", source, expected);
-        expression_string.print();
-        printf("\n");
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: ");
+        print(expected);
+        print(", actual result: ");
+        print(expression_string);
+        print("\n");
         return;
     }
 }
@@ -50,9 +58,10 @@ void test_parser_fail(const char* source)
     if (maybe_expression.has_data)
     {
         auto expression_string = maybe_expression.value.to_string();
-        printf("Test failed, original expression: %s, expected result: parsing failed, actual result: ", source);
-        expression_string.print();
-        printf("\n");
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: parsing failed, actual result: ");
+        print("\n");
         expression_string.deallocate();
     }
 }
@@ -62,16 +71,24 @@ void test_reducer(const char* source, const char* expected)
     auto maybe_reduced = tokenize_parse_and_reduce(source);
     if (!maybe_reduced.has_data)
     {
-        printf("Test failed, original expression: %s, expected result: %s, actual result: reduction failed\n", source, expected);
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: ");
+        print(expected);
+        print(", actual result: reduction failed\n");
         return;
     }
 
     auto reduced_string = maybe_reduced.value.to_string();
     if (reduced_string != expected)
     {
-        printf("Test failed, original expression: %s, expected result: %s, actual result: ", source, expected);
-        reduced_string.print();
-        printf("\n");
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: ");
+        print(expected);
+        print(", actual result: ");
+        print(reduced_string);
+        print("\n");
         return;
     }
 }
