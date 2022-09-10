@@ -1,4 +1,4 @@
-#include "include.h"
+#include "src/include.h"
 
 Option<Expression> tokenize_and_parse(const char* source_c_string)
 {
@@ -9,7 +9,7 @@ Option<Expression> tokenize_and_parse(const char* source_c_string)
     {
         return Option<Expression>::empty();
     }
-    return parse(tokenization_result.tokens);
+    return parse_expression(tokenization_result.tokens);
 }
 
 Option<Expression> tokenize_parse_and_reduce(const char* source_c_string)
@@ -134,4 +134,6 @@ int main()
     test_reducer("(\\ y x . x y) x", "\\ x_1 . x_1 x");
     test_reducer("(\\ y x . x y) x y", "y x");
     test_reducer("(\\ g y x . y x g) x (\\ a b x . a x b)", "\\ x_1 x_2 . x_1 x_2 x");
+
+    print("Done\n");
 }

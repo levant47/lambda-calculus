@@ -1,4 +1,4 @@
-#include <mystd/include.h>
+#include "lib/mystd/include_windows.h"
 
 #include "tokenizer.cpp"
 #include "parser.cpp"

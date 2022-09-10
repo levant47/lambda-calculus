@@ -1,4 +1,4 @@
-enum TokenType
+enum LcTokenType
 {
     TokenTypeOpenParen,
     TokenTypeCloseParen,
@@ -11,11 +11,10 @@ enum TokenType
 
 struct Token
 {
-    TokenType type;
+    LcTokenType type;
 
     union
     {
-        // TokenTypeName
         struct { String name; };
     };
 };

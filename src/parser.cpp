@@ -222,7 +222,6 @@ void ExpressionToStringConverter::collect_global_variables(List<u32>* function_i
             return;
     }
     assert(false);
-    return;
 }
 
 void ExpressionToStringConverter::internal_convert(Expression expression)
@@ -246,9 +245,7 @@ void ExpressionToStringConverter::internal_convert(Expression expression)
                 if (duplicates_count != 0)
                 {
                     result.push('_');
-                    auto count_string = number_to_string(duplicates_count);
-                    result.push(count_string);
-                    count_string.deallocate();
+                    result.push((u64)duplicates_count);
                 }
             }
             return;
@@ -271,9 +268,7 @@ void ExpressionToStringConverter::internal_convert(Expression expression)
                 if (duplicates_count != 0)
                 {
                     result.push('_');
-                    auto count_string = number_to_string(duplicates_count);
-                    result.push(count_string);
-                    count_string.deallocate();
+                    result.push((u64)duplicates_count);
                 }
 
                 result.push(" ");
@@ -315,7 +310,6 @@ void ExpressionToStringConverter::internal_convert(Expression expression)
         }
     }
     assert(false);
-    return;
 }
 
 Expression append_left_to_application(u32 depth, Expression node_to_append, Expression* application_tree)
@@ -429,7 +423,7 @@ struct ExpressionParser
         }
     }
 
-    bool expect_token_type(TokenType token_type)
+    bool expect_token_type(LcTokenType token_type)
     {
         if (is_done() || current().type != token_type)
         {
@@ -645,7 +639,7 @@ struct ExpressionParser
     }
 };
 
-Option<Expression> parse(List<Token> tokens)
+Option<Expression> parse_expression(List<Token> tokens)
 {
     auto parser = ExpressionParser::allocate(tokens);
     auto maybe_expression = parser.parse_terminal_expression();
