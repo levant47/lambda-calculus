@@ -34,6 +34,25 @@ struct Expression
     void print();
 };
 
+static bool operator==(Expression left, Expression right)
+{
+    if (left.type != right.type) { return false; }
+    switch (left.type)
+    {
+        case ExpressionTypeVariable:
+            return left.is_bound == right.is_bound && (
+                left.is_bound
+                    ? left.bounded_id == right.bounded_id
+                    : left.global_name == right.global_name
+            );
+        case ExpressionTypeFunction: return left.parameter_id == right.parameter_id && *left.body == *right.body;
+        case ExpressionTypeApplication: return *left.left == *right.left && *left.right == *right.right;
+        default: assert(false, "Unknown expression type encountered");
+    }
+}
+
+static bool operator!=(Expression left, Expression right) { return !(left == right); }
+
 struct Statement
 {
     String name;

@@ -142,6 +142,7 @@ void test_statements_parser_fail(const char* source, const char* expected_error)
     }
     statements_result.deallocate();
 }
+
 void test_reducer(const char* source, const char* expected)
 {
     auto maybe_reduced = tokenize_parse_and_reduce(source);
@@ -167,6 +168,88 @@ void test_reducer(const char* source, const char* expected)
         print("\n");
         return;
     }
+}
+
+void test_interpreter(const char* c_string_source, const char* expected)
+{
+    auto source = String::copy_from_c_string(c_string_source);
+    auto tokenization_result = tokenize(source);
+    if (tokenization_result.success)
+    {
+        auto parse_result = parse_statements(tokenization_result.tokens);
+        if (parse_result.success)
+        {
+            auto interpreter_result = interpret(parse_result.statements);
+            if (interpreter_result.success)
+            {
+                auto maybe_expected_expression = tokenize_and_parse(expected);
+                assert(maybe_expected_expression.has_data);
+
+                auto interpreted_expected_expression = interpret(
+                    parse_result.statements,
+                    maybe_expected_expression.value
+                );
+                assert(interpreted_expected_expression.success);
+
+                if (interpreter_result.expression != interpreted_expected_expression.expression)
+                {
+                    auto resulting_expression_string = interpreter_result.expression.to_string();
+                    auto expected_expression_string = interpreted_expected_expression.expression.to_string();
+                    print(
+                        "Test failed, original program:\n",
+                        c_string_source,
+                        "Expected result: ",
+                        expected_expression_string,
+                        "\nActual result: ",
+                        resulting_expression_string,
+                        "\n"
+                    );
+                    expected_expression_string.deallocate();
+                    resulting_expression_string.deallocate();
+                }
+            }
+            else
+            {
+                print(
+                    "Test failed, original program:\n",
+                    c_string_source,
+                    "Expected result: ",
+                    expected,
+                    "\nActual result: interpretation failed: ",
+                    interpreter_result.error,
+                    "\n"
+                );
+            }
+            interpreter_result.deallocate();
+        }
+        else
+        {
+            print(
+                "Test failed, original program:\n",
+                c_string_source,
+                "Expected result: ",
+                expected,
+                "\nActual result: parsing failed: ",
+                parse_result.error,
+                "\n"
+            );
+        }
+        parse_result.deallocate();
+        tokenization_result.tokens.deallocate();
+    }
+    else
+    {
+        print(
+            "Test failed, original program:\n",
+            c_string_source,
+            "Expected result: ",
+            expected,
+            "\nActual result: tokenization failed at index ",
+            tokenization_result.failed_at_index,
+            "\n"
+        );
+    }
+    source.deallocate();
 }
 
 int main()
@@ -227,6 +310,17 @@ int main()
     test_reducer("(\\ y x . x y) x", "\\ x_1 . x_1 x");
     test_reducer("(\\ y x . x y) x y", "y x");
     test_reducer("(\\ g y x . y x g) x (\\ a b x . a x b)", "\\ x_1 x_2 . x_1 x_2 x");
+
+    test_interpreter(
+        "main = hey hey;\n",
+        "hey hey"
+    );
+    test_interpreter(
+        "zero = \\ f x . x;\n"
+        "succ = \\ n . \\ f x . f (n f x);\n"
+        "main = succ zero;\n",
+        "\\ f x . f x"
+    );
 
     print("Done\n");
 }
