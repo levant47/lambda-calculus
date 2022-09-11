@@ -16,16 +16,20 @@ struct Expression
         struct
         {
             bool is_bound;
-            union
-            {
-                // is_bound = true
-                u32 bounded_id; // TODO: rename to bound_id
-                // is_bound = false
-                String global_name;
-            };
+            // is_bound = true
+            u32 bounded_id;
+            u32 bound_index;
+            // is_bound = false
+            String global_name;
         };
         // ExpressionTypeFunction
-        struct { u32 parameter_id; String parameter_name; Expression* body; };
+        struct
+        {
+            // this is just a simple way to refer to a function in an expression
+            // (used for expression to string conversion)
+            u32 parameter_id;
+            String parameter_name; Expression* body;
+        };
         // ExpressionTypeApplication
         struct { Expression* left; Expression* right; };
     };
@@ -42,12 +46,12 @@ static bool operator==(Expression left, Expression right)
         case ExpressionTypeVariable:
             return left.is_bound == right.is_bound && (
                 left.is_bound
-                    ? left.bounded_id == right.bounded_id
+                    ? left.bound_index == right.bound_index
                     : left.global_name == right.global_name
             );
-        case ExpressionTypeFunction: return left.parameter_id == right.parameter_id && *left.body == *right.body;
+        case ExpressionTypeFunction: return *left.body == *right.body;
         case ExpressionTypeApplication: return *left.left == *right.left && *left.right == *right.right;
-        default: assert(false, "Unknown expression type encountered");
+        default: assert(false, "Unknown expression type encountered"); return {};
     }
 }
 
@@ -427,15 +431,29 @@ struct BoundedVariableMap
         return {};
     }
 
+    u32 get_index(String name)
+    {
+        for (u64 i = 0; i < list.size; i++)
+        {
+            if (list.data[i].name == name)
+            {
+                return i;
+            }
+        }
+        assert(false);
+        return {};
+    }
+
     void clear() { list.clear(); }
 };
+
+u32 next_id = 0;
 
 struct ExpressionParser
 {
     List<Token> tokens;
     u64 index;
     u32 depth;
-    u32 next_id;
     BoundedVariableMap bounded_variable_map;
     List<String> global_names;
 
@@ -445,7 +463,6 @@ struct ExpressionParser
         result.tokens = tokens;
         result.index = 0;
         result.depth = 0;
-        result.next_id = 0;
         result.bounded_variable_map = BoundedVariableMap::allocate();
         result.global_names = List<String>::allocate();
         return result;
@@ -483,6 +500,8 @@ struct ExpressionParser
         if (expression.is_bound)
         {
             expression.bounded_id = bounded_variable_map.get(current().name);
+            expression.bound_index =
+                bounded_variable_map.list.size - bounded_variable_map.get_index(current().name) - 1;
         }
         else
         {

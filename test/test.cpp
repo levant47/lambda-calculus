@@ -321,6 +321,16 @@ int main()
         "main = succ zero;\n",
         "\\ f x . f x"
     );
+    test_interpreter(
+        "zero = \\ f x . x;\n"
+        "succ = \\ n . \\ f x . f (n f x);\n"
+        "one = succ zero;\n"
+        "two = succ one;\n"
+        "three = succ two;\n"
+        "add = \\ left right . left succ right;\n"
+        "main = add one two;\n",
+        "three"
+    );
 
     print("Done\n");
 }

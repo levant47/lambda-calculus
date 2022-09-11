@@ -40,7 +40,7 @@ Expression resolve_names(List<Statement> definitions, Expression source)
             source.left = copy_to_heap(resolve_names(definitions, *source.left));
             source.right = copy_to_heap(resolve_names(definitions, *source.right));
             return source;
-        default: assert(false, "Encountered an unknown expression type");
+        default: assert(false, "Encountered an unknown expression type"); return {};
     }
 }
 
