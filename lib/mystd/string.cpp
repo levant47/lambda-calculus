@@ -184,3 +184,65 @@ static void print(String string)
 {
     print_buffer(string.data, string.size);
 }
+
+static bool starts_with(StringView target, StringView source)
+{
+    if (target.size > source.size) { return false; }
+    for (u64 i = 0; i < target.size; i++)
+    {
+        if (source.data[i] != target.data[i])
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool starts_with_case_insensitive(StringView target, StringView source)
+{
+    if (target.size > source.size) { return false; }
+    for (u64 i = 0; i < target.size; i++)
+    {
+        if (to_lower(source.data[i]) != to_lower(target.data[i]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool contains_case_insensitive(StringView target, StringView source)
+{
+    if (target.size > source.size) { return false; }
+    for (u64 i = 0; i <= source.size - target.size; i++)
+    {
+        if (starts_with_case_insensitive(target, StringView::construct(source.size - i, source.data + i)))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool starts_with(CStringView target, CStringView source)
+{
+    return starts_with(StringView::from_c_string(target), StringView::from_c_string(source));
+}
+
+static bool contains(StringView target, StringView source)
+{
+    if (target.size > source.size) { return false; }
+    for (auto i = 0; i <= source.size - target.size; i++)
+    {
+        if (starts_with(target, StringView::construct(source.size - i, source.data + i)))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool contains(CString target, CString source)
+{
+    return contains(StringView::from_c_string(target), StringView::from_c_string(source));
+}

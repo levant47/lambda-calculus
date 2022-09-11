@@ -1,13 +1,31 @@
+// had to prefix this enum with Lc because on Windows one of the system headers already defines TokenType
 enum LcTokenType
 {
-    TokenTypeOpenParen,
-    TokenTypeCloseParen,
-    TokenTypeLambdaHeadStart,
-    TokenTypeLambdaHeadEnd,
-    TokenTypeNewLine,
-    TokenTypeWhitespace,
-    TokenTypeName,
+    LcTokenTypeOpenParen,
+    LcTokenTypeCloseParen,
+    LcTokenTypeLambdaHeadStart,
+    LcTokenTypeLambdaHeadEnd,
+    LcTokenTypeWhitespace,
+    LcTokenTypeName,
+    LcTokenTypeEquals,
+    LcTokenTypeSemicolon,
 };
+
+const char* to_string(LcTokenType token)
+{
+    switch (token)
+    {
+        case LcTokenTypeOpenParen: return "Opening parenthesis";
+        case LcTokenTypeCloseParen: return "Closing parenthesis";
+        case LcTokenTypeLambdaHeadStart: return "Lambda head start";
+        case LcTokenTypeLambdaHeadEnd: return "Lambda head end";
+        case LcTokenTypeWhitespace: return "Whitespace";
+        case LcTokenTypeName: return "Name";
+        case LcTokenTypeEquals: return "Equals sign";
+        case LcTokenTypeSemicolon: return "Semicolon";
+        default: return "Unknown token";
+    }
+}
 
 struct Token
 {
@@ -15,13 +33,14 @@ struct Token
 
     union
     {
+        // LcTokenTypeName
         struct { String name; };
     };
 };
 
 bool is_whitespace(char c)
 {
-    return c == ' ' || c == '\t' || c == '\r';
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
 bool is_name_start(char c)
@@ -56,65 +75,17 @@ struct Tokenizer
 
     char current() { return source.data[index]; }
 
-    Option<Token> tokenize_open_paren()
-    {
-        if (is_done() || current() != '(')
-        {
-            return Option<Token>::empty();
-        }
-        index++;
-        Token token;
-        token.type = TokenTypeOpenParen;
-        return Option<Token>::construct(token);
-    }
+    Option<Token> tokenize_open_paren() { return tokenize_character('(', LcTokenTypeOpenParen); }
 
-    Option<Token> tokenize_close_paren()
-    {
-        if (is_done() || current() != ')')
-        {
-            return Option<Token>::empty();
-        }
-        index++;
-        Token token;
-        token.type = TokenTypeCloseParen;
-        return Option<Token>::construct(token);
-    }
+    Option<Token> tokenize_close_paren() { return tokenize_character(')', LcTokenTypeCloseParen); }
 
-    Option<Token> tokenize_lambda_head_start()
-    {
-        if (is_done() || current() != '\\')
-        {
-            return Option<Token>::empty();
-        }
-        index++;
-        Token token;
-        token.type = TokenTypeLambdaHeadStart;
-        return Option<Token>::construct(token);
-    }
+    Option<Token> tokenize_lambda_head_start() { return tokenize_character('\\', LcTokenTypeLambdaHeadStart); }
 
-    Option<Token> tokenize_lambda_head_end()
-    {
-        if (is_done() || current() != '.')
-        {
-            return Option<Token>::empty();
-        }
-        index++;
-        Token token;
-        token.type = TokenTypeLambdaHeadEnd;
-        return Option<Token>::construct(token);
-    }
+    Option<Token> tokenize_lambda_head_end() { return tokenize_character('.', LcTokenTypeLambdaHeadEnd); }
 
-    Option<Token> tokenize_new_line()
-    {
-        if (is_done() || current() != '\n')
-        {
-            return Option<Token>::empty();
-        }
-        index++;
-        Token token;
-        token.type = TokenTypeNewLine;
-        return Option<Token>::construct(token);
-    }
+    Option<Token> tokenize_equals() { return tokenize_character('=', LcTokenTypeEquals); }
+
+    Option<Token> tokenize_semicolon() { return tokenize_character(';', LcTokenTypeSemicolon); }
 
     Option<Token> tokenize_whitespace()
     {
@@ -127,7 +98,7 @@ struct Tokenizer
         while (!is_done() && is_whitespace(current())) { index++; }
 
         Token token;
-        token.type = TokenTypeWhitespace;
+        token.type = LcTokenTypeWhitespace;
         return Option<Token>::construct(token);
     }
 
@@ -149,8 +120,18 @@ struct Tokenizer
         }
 
         Token token;
-        token.type = TokenTypeName;
+        token.type = LcTokenTypeName;
         token.name = name;
+        return Option<Token>::construct(token);
+    }
+
+private:
+    Option<Token> tokenize_character(char target_character, LcTokenType target_type)
+    {
+        if (is_done() || current() != target_character) { return Option<Token>::empty(); }
+        index++;
+        Token token;
+        token.type = target_type;
         return Option<Token>::construct(token);
     }
 };
@@ -183,7 +164,10 @@ TokenizationResult tokenize(String source)
         maybe_token = tokenizer.tokenize_lambda_head_end();
         if (maybe_token.has_data) { tokens.push(maybe_token.value); continue; }
 
-        maybe_token = tokenizer.tokenize_new_line();
+        maybe_token = tokenizer.tokenize_equals();
+        if (maybe_token.has_data) { tokens.push(maybe_token.value); continue; }
+
+        maybe_token = tokenizer.tokenize_semicolon();
         if (maybe_token.has_data) { tokens.push(maybe_token.value); continue; }
 
         maybe_token = tokenizer.tokenize_whitespace();

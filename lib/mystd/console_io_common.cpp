@@ -59,3 +59,15 @@ static void print(T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6)
     print(arg5);
     print(arg6);
 }
+
+template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+static void print(T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7)
+{
+    print(arg1);
+    print(arg2);
+    print(arg3);
+    print(arg4);
+    print(arg5);
+    print(arg6);
+    print(arg7);
+}

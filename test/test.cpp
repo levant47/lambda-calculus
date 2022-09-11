@@ -5,11 +5,20 @@ Option<Expression> tokenize_and_parse(const char* source_c_string)
     auto source = String::copy_from_c_string(source_c_string);
     auto tokenization_result = tokenize(source);
     source.deallocate();
+    if (!tokenization_result.success) { return Option<Expression>::empty(); }
+    return parse_terminal_expression(tokenization_result.tokens);
+}
+
+ParseStatementsResult tokenize_and_parse_statements(const char* source_c_string)
+{
+    auto source = String::copy_from_c_string(source_c_string);
+    auto tokenization_result = tokenize(source);
+    source.deallocate();
     if (!tokenization_result.success)
     {
-        return Option<Expression>::empty();
+        return ParseStatementsResult::make_fail(String::copy_from_c_string("Tokenization failed"));
     }
-    return parse_expression(tokenization_result.tokens);
+    return parse_statements(tokenization_result.tokens);
 }
 
 Option<Expression> tokenize_parse_and_reduce(const char* source_c_string)
@@ -66,6 +75,73 @@ void test_parser_fail(const char* source)
     }
 }
 
+void test_statements_parser_success(const char* source, const char* expected)
+{
+    auto statements_result = tokenize_and_parse_statements(source);
+    if (statements_result.success)
+    {
+        auto statements_string = to_string(statements_result.statements);
+        if (statements_string != expected)
+        {
+            print("Test failed, original statements:\n");
+            print(source);
+            print("expected result:\n");
+            print(expected);
+            print("actual result:\n");
+            print(statements_string);
+            print("\n");
+        }
+        statements_string.deallocate();
+    }
+    else
+    {
+        print("Test failed, original statements:\n");
+        print(source);
+        print("expected result:\n");
+        print(expected);
+        print("actual result: parsing failed\n");
+    }
+    statements_result.deallocate();
+}
+
+void test_statements_parser_success(const char* source)
+{
+    test_statements_parser_success(source, source);
+}
+
+void test_statements_parser_fail(const char* source, const char* expected_error)
+{
+    auto statements_result = tokenize_and_parse_statements(source);
+    if (statements_result.success)
+    {
+        auto statements_string = to_string(statements_result.statements);
+        print(
+            "Test failed, original statements:\n",
+            source,
+            "expected the following parsing error: ",
+            expected_error,
+            "\nactual result: parsing succeeded:\n",
+            statements_string
+        );
+        statements_string.deallocate();
+    }
+    else if (!contains_case_insensitive(
+        StringView::from_c_string(expected_error),
+        statements_result.error.to_string_view()
+    ))
+    {
+        print(
+            "Test failed, original statements:\n",
+            source,
+            "expected the following parsing error: ",
+            expected_error,
+            "\nactual error received: ",
+            statements_result.error,
+            "\n"
+        );
+    }
+    statements_result.deallocate();
+}
 void test_reducer(const char* source, const char* expected)
 {
     auto maybe_reduced = tokenize_parse_and_reduce(source);
@@ -118,6 +194,23 @@ int main()
     test_parser_fail("\\ a b b c . z");
     test_parser_fail("\\ x . \\ y . \\ x . z");
     test_parser_fail("\\ x . \\ y . \\ y . z");
+
+    test_statements_parser_success("zero = \\ f x . x;\n");
+    test_statements_parser_success(
+        "zero = \\ f x . x;\n"
+        "succ = \\ n f x . f (n f x);\n"
+    );
+    test_statements_parser_success(
+        "zero =\n\t\\ f x . x;\n"
+        "succ =\n\t\\ n f x . f (n f x);\n",
+        "zero = \\ f x . x;\n"
+        "succ = \\ n f x . f (n f x);\n"
+    );
+    test_statements_parser_fail(
+        "zero = \\ f x . x;\n"
+        "zero = hey hey;\n",
+        "duplicate definition"
+    );
 
     test_reducer("x", "x");
     test_reducer("(\\ x . x) value", "value");

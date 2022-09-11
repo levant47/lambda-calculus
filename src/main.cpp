@@ -16,7 +16,7 @@ extern "C" void _start()
     }
     print("Tokenization succeeded\n");
 
-    auto parsing_result = parse_expression(tokenization_result.tokens);
+    auto parsing_result = parse_terminal_expression(tokenization_result.tokens);
     if (!parsing_result.has_data)
     {
         print("Parsing failed\n");
