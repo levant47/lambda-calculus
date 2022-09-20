@@ -7,4 +7,6 @@ add_executable(lci src/main.cpp)
 
 add_executable(lci_tests test/test.cpp)
 
+add_executable(build tools/build.cpp)
+
 include_directories(.)

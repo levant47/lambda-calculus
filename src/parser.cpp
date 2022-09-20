@@ -35,7 +35,6 @@ struct Expression
     };
 
     String to_string();
-    void print();
 };
 
 static bool operator==(Expression left, Expression right)
@@ -209,10 +208,10 @@ String Expression::to_string()
     return result;
 }
 
-void Expression::print()
+void print(Expression expression)
 {
-    auto string_representation = to_string();
-    ::print(string_representation);
+    auto string_representation = expression.to_string();
+    print(string_representation);
     string_representation.deallocate();
 }
 

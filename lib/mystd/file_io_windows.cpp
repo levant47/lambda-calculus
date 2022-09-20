@@ -86,14 +86,15 @@ static bool delete_directory(CStringView path)
 
 static bool delete_file(CStringView path) { return DeleteFileA(path); }
 
-// both arguments have to be double null-terminated
-static bool copy_directory(CString from, CString to)
+// both arguments have to be double null-terminated;
+// return value: true means success, false means failure
+static bool copy_directory(CStringView from, CStringView to)
 { // https://stackoverflow.com/a/4725137
     // TODO: explain
     SHFILEOPSTRUCT operation;
     operation.hwnd = nullptr;
     operation.wFunc = FO_COPY;
-    operation.fFlags = FOF_SILENT;
+    operation.fFlags = FOF_SILENT | FOF_NOCONFIRMATION;
     operation.pFrom = from;
     operation.pTo = to;
     operation.fAnyOperationsAborted = false;

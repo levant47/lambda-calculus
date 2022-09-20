@@ -14,12 +14,12 @@ REM linker options:
 REM /NODEFAULTLIB ignore CRT when linking
 REM /ENTRY:main override default entry point which is CRT's main
 
-cl ^
-    /Fo.\temp\ /Fe.\temp\lci_tests.exe ^
+cl /nologo ^
+    /Fo.\temp\ /Fe.\temp\build.exe ^
     /Gy /GS- /Zl ^
     /I. ^
-    test\test.cpp ^
+    tools\build.cpp ^
     /link /NODEFAULTLIB /ENTRY:main /SUBSYSTEM:console ^
-    kernel32.lib ^
+    kernel32.lib shell32.lib ^
     || exit /b
-temp\lci_tests
+temp\build %*

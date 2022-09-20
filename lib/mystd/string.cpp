@@ -1,5 +1,3 @@
-static char to_lower(char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; }
-
 struct StringView
 {
     u64 size;

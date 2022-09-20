@@ -2,7 +2,9 @@
 [/] reduction
 [/] bounded variable indexing
 [/] printing bounded and global variables with duplicate names
+[/] assignments
+[/] interpretation
+[/] build program
 [ ] fix leaks and memory allocation in general
-[ ] statements
 [ ] provide stateful functions as dependencies
 [ ] error reporting

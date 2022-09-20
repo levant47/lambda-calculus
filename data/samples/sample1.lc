@@ -1,0 +1,8 @@
+zero = \ f x . x;
+succ = \ n . \ f x . f (n f x);
+one = succ zero;
+two = succ one;
+three = succ two;
+add = \ left right . left succ right;
+
+main = add one two;

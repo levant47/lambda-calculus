@@ -8,17 +8,6 @@ static PROCESS_INFORMATION start_process(
     HANDLE output_pipe = nullptr
 )
 {
-    if (directory != nullptr)
-    {
-        print(directory, ">");
-    }
-    print(app_path);
-    if (arguments != nullptr)
-    {
-        print(" ", arguments);
-    }
-    print("\n");
-
     STARTUPINFOA startup_info;
     set_memory(0, sizeof(startup_info), (char*)&startup_info);
     startup_info.cb = sizeof(startup_info);
