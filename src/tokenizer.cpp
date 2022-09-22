@@ -36,6 +36,11 @@ struct Token
         // LcTokenTypeName
         struct { String name; };
     };
+
+    void deallocate()
+    {
+        if (type == LcTokenTypeName) { name.deallocate(); }
+    }
 };
 
 bool is_whitespace(char c)
@@ -141,6 +146,15 @@ struct TokenizationResult
     bool success;
     List<Token> tokens;
     u64 failed_at_index;
+
+    void deallocate()
+    {
+        if (success)
+        {
+            for (u64 i = 0; i < tokens.size; i++) { tokens.data[i].deallocate(); }
+            tokens.deallocate();
+        }
+    }
 };
 
 TokenizationResult tokenize(String source)
@@ -176,6 +190,7 @@ TokenizationResult tokenize(String source)
         maybe_token = tokenizer.tokenize_name();
         if (maybe_token.has_data) { tokens.push(maybe_token.value); continue; }
 
+        for (u64 i = 0; i < tokens.size; i++) { tokens.data[i].deallocate(); }
         tokens.deallocate();
 
         TokenizationResult result;

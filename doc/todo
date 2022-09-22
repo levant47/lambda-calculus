@@ -6,5 +6,6 @@
 [/] interpretation
 [/] build program
 [ ] fix leaks and memory allocation in general
+[ ] simple type system
 [ ] provide stateful functions as dependencies
 [ ] error reporting

@@ -51,6 +51,7 @@ int main()
     auto source = maybe_source.value;
 
     auto tokenization_result = tokenize(source);
+    source.deallocate();
     if (!tokenization_result.success)
     {
         print("Tokenization failed at character ", tokenization_result.failed_at_index, '\n');
@@ -58,6 +59,7 @@ int main()
     }
 
     auto parsing_result = parse_statements(tokenization_result.tokens);
+    tokenization_result.deallocate();
     if (!parsing_result.success)
     {
         print("Parsing failed: ", parsing_result.error, "\n");
@@ -65,12 +67,14 @@ int main()
     }
 
     auto interpretation_result = interpret(parsing_result.statements);
+    parsing_result.deallocate();
     if (!interpretation_result.success)
     {
         print("Interpretation failed: ", interpretation_result.error, "\n");
         return 1;
     }
     print(interpretation_result.expression);
+    interpretation_result.deallocate();
 
     return 0;
 }

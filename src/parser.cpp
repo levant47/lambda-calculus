@@ -28,14 +28,38 @@ struct Expression
             // this is just a simple way to refer to a function in an expression
             // (used for expression to string conversion)
             u32 parameter_id;
-            String parameter_name; Expression* body;
+            String parameter_name;
+            Expression* body;
         };
         // ExpressionTypeApplication
         struct { Expression* left; Expression* right; };
     };
 
+    void deallocate();
     String to_string();
 };
+
+void Expression::deallocate()
+{
+    switch (type)
+    {
+        case ExpressionTypeVariable:
+            if (!is_bound) { global_name.deallocate(); }
+            break;
+        case ExpressionTypeFunction:
+            parameter_name.deallocate();
+            body->deallocate();
+            default_deallocate(body);
+            break;
+        case ExpressionTypeApplication:
+            left->deallocate();
+            right->deallocate();
+            default_deallocate(left);
+            default_deallocate(right);
+            break;
+        default: assert(false);
+    }
+}
 
 static bool operator==(Expression left, Expression right)
 {
@@ -60,6 +84,12 @@ struct Statement
 {
     String name;
     Expression expression;
+
+    void deallocate()
+    {
+        name.deallocate();
+        expression.deallocate();
+    }
 };
 
 String to_string(List<Statement> statements)
@@ -272,7 +302,8 @@ void ExpressionToStringConverter::internal_convert(Expression expression)
 {
     switch (expression.type)
     {
-        case ExpressionTypeVariable: {
+        case ExpressionTypeVariable:
+        {
             auto name = expression.is_bound
                 ? bounded_variable_usage_map.get_name(expression.bounded_id)
                 : expression.global_name;
@@ -294,7 +325,8 @@ void ExpressionToStringConverter::internal_convert(Expression expression)
             }
             return;
         }
-        case ExpressionTypeFunction: {
+        case ExpressionTypeFunction:
+        {
             auto original_bounded_variable_usage_map_size = bounded_variable_usage_map.entries.size;
 
             last_function_id = Option<u32>::construct(expression.parameter_id);
@@ -328,7 +360,8 @@ void ExpressionToStringConverter::internal_convert(Expression expression)
 
             return;
         }
-        case ExpressionTypeApplication: {
+        case ExpressionTypeApplication:
+        {
             if (expression.left->type == ExpressionTypeFunction)
             {
                 result.push('(');
@@ -504,7 +537,7 @@ struct ExpressionParser
         }
         else
         {
-            expression.global_name = current().name;
+            expression.global_name = current().name.copy();
         }
 
         next();
@@ -518,66 +551,73 @@ struct ExpressionParser
 
         auto original_index = index;
         auto original_bounded_variable_map_size = bounded_variable_map.list.size;
-        if (false)
-        {
-            fail:
-            index = original_index;
-            bounded_variable_map.list.size = original_bounded_variable_map_size;
-            return Option<Expression>::empty();
-        }
 
         bool head_start_found = expect_token_type(LcTokenTypeLambdaHeadStart);
-        if (!head_start_found) { goto fail; }
-
-        skip_whitespace();
-
+        skip_whitespace(); // do it here just to avoid an extra nestedness level
         if (
-            current().type != LcTokenTypeName
-                || bounded_variable_map.has(current().name)
-                || global_names.contains(current().name)
-        ) { goto fail; }
-        Expression function;
-        function.type = ExpressionTypeFunction;
-        function.depth = depth;
-        function.parameter_id = next_id++;
-        function.parameter_name = current().name;
-        bounded_variable_map.push(function.parameter_id, function.parameter_name);
-        next();
-
-        Expression** next_body = &function.body;
-        while (true)
+            head_start_found
+                && current().type == LcTokenTypeName
+                && !bounded_variable_map.has(current().name)
+                && !global_names.contains(current().name)
+        )
         {
-            skip_whitespace();
-
-            if (current().type != LcTokenTypeName) { break; }
-            if (bounded_variable_map.has(current().name)) { goto fail; }
-
-            Expression next_function;
-            next_function.type = ExpressionTypeFunction;
-            next_function.depth = depth;
-            next_function.parameter_id = next_id++;
-            next_function.parameter_name = current().name;
-
-            *next_body = copy_to_heap(next_function); // #leak in case of parsing error down the line
-            next_body = &(*next_body)->body;
-
-            bounded_variable_map.push(next_function.parameter_id, next_function.parameter_name);
-
+            Expression function;
+            function.type = ExpressionTypeFunction;
+            function.depth = depth;
+            function.parameter_id = next_id++;
+            function.parameter_name = current().name.copy();
+            function.body = nullptr;
+            bounded_variable_map.push(function.parameter_id, function.parameter_name);
             next();
+
+            Expression** next_body = &function.body;
+            bool success = true;
+            while (true)
+            {
+                skip_whitespace();
+
+                if (current().type != LcTokenTypeName) { break; }
+                if (bounded_variable_map.has(current().name)) { success = false; break; }
+
+                Expression next_function;
+                next_function.type = ExpressionTypeFunction;
+                next_function.depth = depth;
+                next_function.parameter_id = next_id++;
+                next_function.parameter_name = current().name.copy();
+                next_function.body = nullptr;
+
+                *next_body = copy_to_heap(next_function);
+                next_body = &(*next_body)->body;
+
+                bounded_variable_map.push(next_function.parameter_id, next_function.parameter_name);
+
+                next();
+            }
+
+            if (success && expect_token_type(LcTokenTypeLambdaHeadEnd))
+            {
+                skip_whitespace();
+                auto maybe_body = parse_expression();
+                if (maybe_body.has_data)
+                {
+                    *next_body = copy_to_heap(maybe_body.value);
+                    bounded_variable_map.list.size = original_bounded_variable_map_size;
+                    return Option<Expression>::construct(function);
+                }
+            }
+
+            auto node = function.body;
+            while (node != nullptr)
+            {
+                auto next_node = node->body;
+                default_deallocate(node);
+                node = next_node;
+            }
         }
 
-        bool head_end_found = expect_token_type(LcTokenTypeLambdaHeadEnd);
-        if (!head_end_found) { goto fail; }
-
-        skip_whitespace();
-
-        auto maybe_body = parse_expression();
-        if (!maybe_body.has_data) { goto fail; }
-        *next_body = copy_to_heap(maybe_body.value);
-
+        index = original_index;
         bounded_variable_map.list.size = original_bounded_variable_map_size;
-
-        return Option<Expression>::construct(function);
+        return Option<Expression>::empty();
     }
 
     Option<Expression> parse_application()
@@ -585,74 +625,59 @@ struct ExpressionParser
         if (is_done()) { return Option<Expression>::empty(); }
 
         auto original_index = index;
-        if (false)
+
+        auto maybe_left = parse_variable();
+        if (!maybe_left.has_data) { maybe_left = parse_parenthesized_expression(); }
+
+        if (maybe_left.has_data)
         {
-            fail:
-            index = original_index;
-            return Option<Expression>::empty();
+            skip_whitespace();
+
+            auto maybe_right = parse_expression();
+            if (maybe_right.has_data)
+            {
+                if (maybe_right.value.type == ExpressionTypeApplication && maybe_right.value.depth == depth)
+                {
+                    return Option<Expression>::construct(
+                        append_left_to_application(depth, maybe_left.value, &maybe_right.value)
+                    );
+                }
+                Expression expression;
+                expression.type = ExpressionTypeApplication;
+                expression.depth = depth;
+                expression.left = copy_to_heap(maybe_left.value);
+                expression.right = copy_to_heap(maybe_right.value);
+                return Option<Expression>::construct(expression);
+            }
+
+            maybe_left.value.deallocate();
         }
 
-        Option<Expression> maybe_left;
-
-        maybe_left = parse_variable();
-        if (!maybe_left.has_data)
-        {
-            index = original_index;
-            goto try_parenthesized;
-        }
-        goto continue_to_right;
-
-        try_parenthesized:
-        maybe_left = parse_parenthesized_expression();
-        if (!maybe_left.has_data) { goto fail; }
-
-        continue_to_right:
-        skip_whitespace();
-
-        auto maybe_right = parse_expression();
-        if (!maybe_right.has_data) { goto fail; }
-
-        if (maybe_right.value.type == ExpressionTypeApplication && maybe_right.value.depth == depth)
-        {
-            return Option<Expression>::construct(append_left_to_application(depth, maybe_left.value, &maybe_right.value));
-        }
-        else
-        {
-            Expression expression;
-            expression.type = ExpressionTypeApplication;
-            expression.depth = depth;
-            expression.left = copy_to_heap(maybe_left.value);
-            expression.right = copy_to_heap(maybe_right.value);
-            return Option<Expression>::construct(expression);
-        }
+        index = original_index;
+        return Option<Expression>::empty();
     }
 
     Option<Expression> parse_parenthesized_expression()
     {
-        if (is_done()) { return Option<Expression>::empty(); }
-
         auto original_index = index;
-        auto original_depth = depth;
-        if (false)
+        if (expect_token_type(LcTokenTypeOpenParen))
         {
-            fail:
-            index = original_index;
+            auto original_depth = depth;
+            depth++;
+            auto maybe_expression = parse_expression();
+            if (maybe_expression.has_data)
+            {
+                if (expect_token_type(LcTokenTypeCloseParen))
+                {
+                    depth--;
+                    return Option<Expression>::construct(maybe_expression.value);
+                }
+                maybe_expression.value.deallocate();
+            }
             depth = original_depth;
-            return Option<Expression>::empty();
         }
-
-        auto open_paren_found = expect_token_type(LcTokenTypeOpenParen);
-        if (!open_paren_found) { goto fail; }
-
-        depth++;
-        auto maybe_expression = parse_expression();
-        if (!maybe_expression.has_data) { goto fail; }
-        depth--;
-
-        auto close_paren_found = expect_token_type(LcTokenTypeCloseParen);
-        if (!close_paren_found) { goto fail; }
-
-        return Option<Expression>::construct(maybe_expression.value);
+        index = original_index;
+        return Option<Expression>::empty();
     }
 
     Option<Expression> parse_expression()
@@ -696,6 +721,9 @@ struct ExpressionParser
             return Result<Statement, String>::fail(error);
         }
         global_names.push(name);
+        // we don't need to restore global names in case of failure as long as we know that source can only be a list of
+        // statements, and therefore failure to parse a statement will lead to termination of parsing and deallocation
+        // of all parser resources
 
         auto original_index = index;
         next();
@@ -726,6 +754,7 @@ struct ExpressionParser
 
         if (!expect_token_type(LcTokenTypeSemicolon))
         {
+            maybe_expression.value.deallocate();
             index = original_index;
             auto error = String::allocate();
             error.push("Expected a semicolon at the end of a statement, encountered ");
@@ -747,10 +776,17 @@ Option<Expression> parse_terminal_expression(List<Token> tokens)
 {
     auto parser = ExpressionParser::allocate(tokens);
     auto result = parser.parse_expression();
-    parser.skip_whitespace();
-    if (!parser.is_done()) { result = Option<Expression>::empty(); }
+    if (result.has_data)
+    {
+        parser.skip_whitespace();
+        if (parser.is_done())
+        {
+            return result;
+        }
+        result.value.deallocate();
+    }
     parser.deallocate();
-    return result;
+    return Option<Expression>::empty();
 }
 
 struct ParseStatementsResult
@@ -782,8 +818,9 @@ struct ParseStatementsResult
 
     void deallocate()
     {
-        if (success) { statements.deallocate(); }
-        else { error.deallocate(); }
+        if (!success) { error.deallocate(); return; }
+        for (u64 i = 0; i < statements.size; i++) { statements.data[i].deallocate(); }
+        statements.deallocate();
     }
 };
 
@@ -810,6 +847,7 @@ ParseStatementsResult parse_statements(List<Token> tokens)
     parser.deallocate();
     if (fail)
     {
+        for (u64 i = 0; i < statements.size; i++) { statements.data[i].deallocate(); }
         statements.deallocate();
         return ParseStatementsResult::make_fail(error);
     }
