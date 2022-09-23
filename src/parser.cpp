@@ -61,6 +61,37 @@ void Expression::deallocate()
     }
 }
 
+Expression copy(Expression source)
+{
+    Expression result;
+    result.type = source.type;
+    switch (source.type)
+    {
+        case ExpressionTypeVariable:
+            result.is_bound = source.is_bound;
+            if (source.is_bound)
+            {
+                result.bounded_id = source.bounded_id;
+                result.bound_index = source.bound_index;
+            }
+            else
+            {
+                result.global_name = source.global_name.copy();
+            }
+            return result;
+        case ExpressionTypeFunction:
+            result.parameter_id = source.parameter_id;
+            result.parameter_name = source.parameter_name.copy();
+            result.body = copy_to_heap(copy(*source.body));
+            return result;
+        case ExpressionTypeApplication:
+            result.left = copy_to_heap(copy(*source.left));
+            result.right = copy_to_heap(copy(*source.right));
+            return result;
+        default: assert(false); return {};
+    }
+}
+
 static bool operator==(Expression left, Expression right)
 {
     if (left.type != right.type) { return false; }
@@ -606,10 +637,12 @@ struct ExpressionParser
                 }
             }
 
+            function.parameter_name.deallocate();
             auto node = function.body;
             while (node != nullptr)
             {
                 auto next_node = node->body;
+                node->parameter_name.deallocate();
                 default_deallocate(node);
                 node = next_node;
             }
@@ -781,6 +814,7 @@ Option<Expression> parse_terminal_expression(List<Token> tokens)
         parser.skip_whitespace();
         if (parser.is_done())
         {
+            parser.deallocate();
             return result;
         }
         result.value.deallocate();

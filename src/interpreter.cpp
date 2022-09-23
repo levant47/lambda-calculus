@@ -15,6 +15,7 @@ struct InterpreterResult
     void deallocate()
     {
         if (!success) { error.deallocate(); }
+        else { expression.deallocate(); }
     }
 };
 
@@ -23,17 +24,18 @@ Expression resolve_names(List<Statement> definitions, Expression source)
     switch (source.type)
     {
         case ExpressionTypeVariable:
-            if (source.is_bound) { return source; }
+            if (source.is_bound) { return copy(source); }
             for (u64 i = 0; i < definitions.size; i++)
             {
                 auto definition = definitions.data[i];
                 if (definition.name == source.global_name)
                 {
-                    return definition.expression;
+                    return copy(definition.expression);
                 }
             }
-            return source;
+            return copy(source);
         case ExpressionTypeFunction:
+            source.parameter_name = source.parameter_name.copy();
             source.body = copy_to_heap(resolve_names(definitions, *source.body));
             return source;
         case ExpressionTypeApplication:
@@ -46,21 +48,24 @@ Expression resolve_names(List<Statement> definitions, Expression source)
 
 InterpreterResult interpret(List<Statement> definitions, Expression main_expression)
 {
+    Expression previous_expression = copy(main_expression);
     while (true)
     {
-        auto new_expression = reduce(main_expression);
-        new_expression = resolve_names(definitions, new_expression);
-        if (new_expression == main_expression)
+        auto reduced_expression = reduce(previous_expression);
+        auto resolved_expression = resolve_names(definitions, reduced_expression);
+        reduced_expression.deallocate();
+        if (resolved_expression == previous_expression)
         { // we're done
-            break;
-        }
-        main_expression = new_expression;
-    }
+            previous_expression.deallocate();
 
-    InterpreterResult result;
-    result.success = true;
-    result.expression = main_expression;
-    return result;
+            InterpreterResult result;
+            result.success = true;
+            result.expression = resolved_expression;
+            return result;
+        }
+        previous_expression.deallocate();
+        previous_expression = resolved_expression;
+    }
 }
 
 InterpreterResult interpret(List<Statement> program)

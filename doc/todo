@@ -5,7 +5,7 @@
 [/] assignments
 [/] interpretation
 [/] build program
-[ ] fix leaks and memory allocation in general
+[/] fix memory leaks
 [ ] simple type system
 [ ] provide stateful functions as dependencies
 [ ] error reporting

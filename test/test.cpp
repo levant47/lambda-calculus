@@ -6,7 +6,9 @@ Option<Expression> tokenize_and_parse(const char* source_c_string)
     auto tokenization_result = tokenize(source);
     source.deallocate();
     if (!tokenization_result.success) { return Option<Expression>::empty(); }
-    return parse_terminal_expression(tokenization_result.tokens);
+    auto parsing_result = parse_terminal_expression(tokenization_result.tokens);
+    tokenization_result.deallocate();
+    return parsing_result;
 }
 
 ParseStatementsResult tokenize_and_parse_statements(const char* source_c_string)
@@ -18,15 +20,18 @@ ParseStatementsResult tokenize_and_parse_statements(const char* source_c_string)
     {
         return ParseStatementsResult::make_fail(String::copy_from_c_string("Tokenization failed"));
     }
-    return parse_statements(tokenization_result.tokens);
+    auto parsing_result = parse_statements(tokenization_result.tokens);
+    tokenization_result.deallocate();
+    return parsing_result;
 }
 
 Option<Expression> tokenize_parse_and_reduce(const char* source_c_string)
 {
     auto maybe_expression = tokenize_and_parse(source_c_string);
     if (!maybe_expression.has_data) { return Option<Expression>::empty(); }
-
-    return Option<Expression>::construct(reduce(maybe_expression.value));
+    auto reduced_expression = reduce(maybe_expression.value);
+    maybe_expression.value.deallocate();
+    return Option<Expression>::construct(reduced_expression);
 }
 
 void test_parser_success(const char* source, const char* expected)
@@ -43,6 +48,7 @@ void test_parser_success(const char* source, const char* expected)
     }
 
     auto expression_string = maybe_expression.value.to_string();
+    maybe_expression.value.deallocate();
     if (expression_string != expected)
     {
         print("Test failed, original expression: ");
@@ -52,8 +58,8 @@ void test_parser_success(const char* source, const char* expected)
         print(", actual result: ");
         print(expression_string);
         print("\n");
-        return;
     }
+    expression_string.deallocate();
 }
 
 void test_parser_success(const char* source)
@@ -72,6 +78,7 @@ void test_parser_fail(const char* source)
         print(", expected result: parsing failed, actual result: ");
         print("\n");
         expression_string.deallocate();
+        maybe_expression.value.deallocate();
     }
 }
 
@@ -157,6 +164,7 @@ void test_reducer(const char* source, const char* expected)
     }
 
     auto reduced_string = maybe_reduced.value.to_string();
+    maybe_reduced.value.deallocate();
     if (reduced_string != expected)
     {
         print("Test failed, original expression: ");
@@ -166,8 +174,8 @@ void test_reducer(const char* source, const char* expected)
         print(", actual result: ");
         print(reduced_string);
         print("\n");
-        return;
     }
+    reduced_string.deallocate();
 }
 
 void test_interpreter(const char* c_string_source, const char* expected)
@@ -189,6 +197,7 @@ void test_interpreter(const char* c_string_source, const char* expected)
                     parse_result.statements,
                     maybe_expected_expression.value
                 );
+                maybe_expected_expression.value.deallocate();
                 assert(interpreted_expected_expression.success);
 
                 if (interpreter_result.expression != interpreted_expected_expression.expression)
@@ -207,6 +216,7 @@ void test_interpreter(const char* c_string_source, const char* expected)
                     expected_expression_string.deallocate();
                     resulting_expression_string.deallocate();
                 }
+                interpreted_expected_expression.deallocate();
             }
             else
             {
@@ -235,7 +245,6 @@ void test_interpreter(const char* c_string_source, const char* expected)
             );
         }
         parse_result.deallocate();
-        tokenization_result.tokens.deallocate();
     }
     else
     {
@@ -249,6 +258,7 @@ void test_interpreter(const char* c_string_source, const char* expected)
             "\n"
         );
     }
+    tokenization_result.deallocate();
     source.deallocate();
 }
 
