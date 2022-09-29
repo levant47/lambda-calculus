@@ -68,37 +68,66 @@ Expression eta_reduce(Expression function)
     return copy(function);
 }
 
-Expression reduce(Expression expression)
+Result<Expression, String> reduce(Expression expression, u64 recursion_counter = 0)
 {
+    u64 recursion_limit = 300;
+    if (recursion_counter == recursion_limit)
+    {
+        auto error = String::allocate();
+        error.push("Recursion limit of ");
+        error.push(recursion_limit);
+        error.push(" reached");
+        return Result<Expression, String>::fail(error);
+    }
+    recursion_counter++;
+
+    Expression result;
     switch (expression.type)
     {
-        case ExpressionTypeVariable: return copy(expression);
+        case ExpressionTypeVariable:
+        {
+            result = copy(expression);
+            break;
+        }
         case ExpressionTypeFunction:
         {
-            auto reduced_body = copy_to_heap(reduce(*expression.body));
+            auto reducing_body_result = reduce(*expression.body, recursion_counter);
+            if (!reducing_body_result.is_success) { return reducing_body_result; }
+            auto reduced_body = copy_to_heap(reducing_body_result.value);
             expression.body = reduced_body;
             auto eta_reduced_expression = eta_reduce(expression);
             reduced_body->deallocate();
             default_deallocate(reduced_body);
-            return eta_reduced_expression;
+            result = eta_reduced_expression;
+            break;
         }
         case ExpressionTypeApplication:
         {
-            auto reduced_left = reduce(*expression.left);
-            auto reduced_right = reduce(*expression.right);
+            auto reducing_left_result = reduce(*expression.left, recursion_counter);
+            if (!reducing_left_result.is_success) { return reducing_left_result; }
+            auto reducing_right_result = reduce(*expression.right, recursion_counter);
+            if (!reducing_right_result.is_success)
+            {
+                reducing_left_result.value.deallocate();
+                return reducing_right_result;
+            }
+            auto reduced_left = reducing_left_result.value;
+            auto reduced_right = reducing_right_result.value;
             if (reduced_left.type == ExpressionTypeFunction)
             {
                 auto beta_reduced = beta_reduce(0, reduced_right, *reduced_left.body);
                 reduced_left.deallocate();
                 reduced_right.deallocate();
-                auto reduced_application = reduce(beta_reduced);
+                auto reducing_application_result = reduce(beta_reduced, recursion_counter);
                 beta_reduced.deallocate();
-                return reduced_application;
+                return reducing_application_result;
             }
             expression.left = copy_to_heap(reduced_left);
             expression.right = copy_to_heap(reduced_right);
-            return expression;
+            result = expression;
+            break;
         }
         default: assert(false); return {};
     }
+    return Result<Expression, String>::success(result);
 }

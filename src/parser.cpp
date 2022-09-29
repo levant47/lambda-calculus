@@ -795,9 +795,6 @@ struct ExpressionParser
             return Result<Statement, String>::fail(error);
         }
 
-        // we don't want local variables from one definition to affect local variables in another definition in any way
-        bounded_variable_map.clear();
-
         Statement result;
         result.name = name.copy();
         result.expression = maybe_expression.value;

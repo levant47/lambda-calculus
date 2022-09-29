@@ -6,6 +6,9 @@
 [/] interpretation
 [/] build program
 [/] fix memory leaks
+[/] handle stack overflow
+[ ] increase recursion limit (right now it's very low at 300 because we copy a lot of data through the stack, we should use the heap instead)
 [ ] simple type system
 [ ] provide stateful functions as dependencies
 [ ] error reporting
+[ ] fix evaluation of recursive expressions

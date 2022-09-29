@@ -25,13 +25,16 @@ ParseStatementsResult tokenize_and_parse_statements(const char* source_c_string)
     return parsing_result;
 }
 
-Option<Expression> tokenize_parse_and_reduce(const char* source_c_string)
+Result<Expression, String> tokenize_parse_and_reduce(const char* source_c_string)
 {
     auto maybe_expression = tokenize_and_parse(source_c_string);
-    if (!maybe_expression.has_data) { return Option<Expression>::empty(); }
-    auto reduced_expression = reduce(maybe_expression.value);
+    if (!maybe_expression.has_data)
+    {
+        return Result<Expression, String>::fail(String::copy_from_c_string("Tokenization or parsing failed"));
+    }
+    auto reduction_result = reduce(maybe_expression.value);
     maybe_expression.value.deallocate();
-    return Option<Expression>::construct(reduced_expression);
+    return reduction_result;
 }
 
 void test_parser_success(const char* source, const char* expected)
@@ -153,13 +156,16 @@ void test_statements_parser_fail(const char* source, const char* expected_error)
 void test_reducer(const char* source, const char* expected)
 {
     auto maybe_reduced = tokenize_parse_and_reduce(source);
-    if (!maybe_reduced.has_data)
+    if (!maybe_reduced.is_success)
     {
         print("Test failed, original expression: ");
         print(source);
         print(", expected result: ");
         print(expected);
-        print(", actual result: reduction failed\n");
+        print(", actual result: ");
+        print(maybe_reduced.error);
+        maybe_reduced.error.deallocate();
+        print('\n');
         return;
     }
 
@@ -176,6 +182,34 @@ void test_reducer(const char* source, const char* expected)
         print("\n");
     }
     reduced_string.deallocate();
+}
+
+void test_reducer_fail(const char* source, const char* expected_error)
+{
+    auto maybe_reduced = tokenize_parse_and_reduce(source);
+    if (maybe_reduced.is_success)
+    {
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: ");
+        print(expected_error);
+        print(", actual result: ");
+        print(maybe_reduced.value);
+        maybe_reduced.value.deallocate();
+        print('\n');
+    }
+
+    if (!contains_case_insensitive(StringView::from_c_string(expected_error), maybe_reduced.error.to_string_view()))
+    {
+        print("Test failed, original expression: ");
+        print(source);
+        print(", expected result: ");
+        print(expected_error);
+        print(", actual result: ");
+        print(maybe_reduced.error);
+        print('\n');
+    }
+    maybe_reduced.error.deallocate();
 }
 
 void test_interpreter(const char* c_string_source, const char* expected)
@@ -320,6 +354,13 @@ int main()
     test_reducer("(\\ y x . x y) x", "\\ x_1 . x_1 x");
     test_reducer("(\\ y x . x y) x y", "y x");
     test_reducer("(\\ g y x . y x g) x (\\ a b x . a x b)", "\\ x_1 x_2 . x_1 x_2 x");
+    // make sure the interpreter doesn't crash on infinite recursion, and instead gives a proper error message
+    test_reducer_fail("(\\ x . x x) (\\ x . x x)", "recursion limit");
+    // this is infinite recursion inside of a function, so should it be evaluated at all?
+    // test_reducer("\\ _ . (\\ x . x x) (\\ x . x x)", "\\ _ . (\\ x . x x) (\\ x . x x)");
+    // this infinite recursion can get eaten up by the application at the beginning of the expression, so, again, should this crash?
+    // test_reducer("(\\ _ x . x) ((\\ x . x x) (\\ x . x x))", "\\ x . x");
+    // see below for another instance of this problem
 
     test_interpreter(
         "main = hey hey;\n",
@@ -340,6 +381,24 @@ int main()
         "add = \\ left right . left succ right;\n"
         "main = add one two;\n",
         "three"
+    );
+    // in this test we don't start a recursive function by not applying anything to it
+    // test_interpreter(
+    //     "true = \\ iftrue iffalse . iftrue;\n"
+    //     "false = \\ iftrue iffalse . iffalse;\n"
+    //     "not = \\ boolean . boolean false true;\n"
+    //     "loop = \\ condition . condition (\\ x . x) (loop (not condition));\n"
+    //     "main = loop;\n",
+    //     "\\ condition . condition (\\ x . x) (loop (not condition))"
+    // );
+    // same test as above, but we start the recursive function this time
+    test_interpreter(
+        "true = \\ iftrue iffalse . iftrue;\n"
+        "false = \\ iftrue iffalse . iffalse;\n"
+        "not = \\ boolean . boolean false true;\n"
+        "loop = \\ condition . condition (\\ x . x) (loop (not condition));\n"
+        "main = loop false;\n",
+        "\\ x . x"
     );
 
     print("Done\n");

@@ -51,7 +51,13 @@ InterpreterResult interpret(List<Statement> definitions, Expression main_express
     Expression previous_expression = copy(main_expression);
     while (true)
     {
-        auto reduced_expression = reduce(previous_expression);
+        auto reducing_result = reduce(previous_expression);
+        if (!reducing_result.is_success)
+        {
+            previous_expression.deallocate();
+            return InterpreterResult::make_fail(reducing_result.error);
+        }
+        auto reduced_expression = reducing_result.value;
         auto resolved_expression = resolve_names(definitions, reduced_expression);
         reduced_expression.deallocate();
         if (resolved_expression == previous_expression)
